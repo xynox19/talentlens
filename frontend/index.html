@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TalentLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #111118;
+  --surface2: #1a1a24;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #f0f0f5;
+  --muted: #6b6b80;
+  --accent: #7fffb2;
+  --accent2: #7eb8ff;
+  --warn: #ffb347;
+  --danger: #ff6b6b;
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+#root { min-height: 100vh; }
+
+/* ── scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── layout ── */
+.shell { display: grid; grid-template-rows: 52px 1fr; height: 100vh; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.logo { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.logo span { color: var(--accent); }
+.topbar-right { display: flex; align-items: center; gap: 14px; }
+.live-dot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+.body { display: grid; grid-template-columns: 260px 1fr; overflow: hidden; }
+
+/* ── sidebar ── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; background: var(--surface);
+}
+.sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+.sidebar-label { font-size: 10px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px; }
+
+/* upload zone */
+.upload-zone {
+  border: 1px dashed var(--border2); border-radius: 8px;
+  padding: 20px 12px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+  font-size: 12px; color: var(--muted);
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(127,255,178,.04); color: var(--text); }
+.upload-zone.done { border-color: var(--accent); background: rgba(127,255,178,.06); color: var(--accent); }
+.upload-zone i { font-size: 22px; display: block; margin-bottom: 6px; }
+
+/* skill pills */
+.pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.pill {
+  font-size: 10px; padding: 3px 8px; border-radius: 20px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; transition: all .15s;
+  font-family: var(--font-mono);
+}
+.pill.have { background: rgba(127,255,178,.1); border-color: rgba(127,255,178,.3); color: var(--accent); }
+.pill.miss { background: rgba(255,107,107,.1); border-color: rgba(255,107,107,.3); color: var(--danger); }
+
+/* stats in sidebar */
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; font-size: 12px; }
+.stat-val { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--accent); }
+.stat-lbl { color: var(--muted); font-size: 11px; }
+
+.fit-ring-wrap { display: flex; flex-direction: column; align-items: center; padding: 12px 0; }
+.ring-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+.ring-pct { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+.ring-sub { font-size: 10px; color: var(--muted); }
+
+/* ── main ── */
+.main { display: flex; flex-direction: column; overflow: hidden; }
+.main-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  flex-shrink: 0;
+}
+.search-wrap { flex: 1; position: relative; }
+.search-wrap input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px 8px 34px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+  outline: none; transition: border-color .2s;
+}
+.search-wrap input:focus { border-color: var(--border2); }
+.search-wrap .s-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; }
+.loc-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; width: 130px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text); outline: none;
+}
+.refresh-btn {
+  background: none; border: 1px solid var(--border2); border-radius: 6px;
+  padding: 7px 12px; font-family: var(--font-mono); font-size: 12px;
+  color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: all .15s;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.refresh-btn.spinning i { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* countdown */
+.countdown { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.countdown span { color: var(--accent2); }
+
+/* job list */
+.jobs-wrap { flex: 1; overflow-y: auto; }
+.jobs-grid { display: flex; flex-direction: column; gap: 0; }
+.job-card {
+  display: grid; grid-template-columns: 1fr auto;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .15s; gap: 12px;
+}
+.job-card:hover { background: var(--surface); }
+.job-card.selected { background: var(--surface); border-left: 2px solid var(--accent); }
+.job-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.job-meta { font-size: 11px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.job-meta span { display: flex; align-items: center; gap: 3px; }
+.job-desc { font-size: 11px; color: var(--muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.score-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 8px; flex-shrink: 0;
+  font-family: var(--font-display); font-size: 16px; font-weight: 700;
+}
+.score-badge.high { background: rgba(127,255,178,.12); color: var(--accent); border: 1px solid rgba(127,255,178,.2); }
+.score-badge.mid  { background: rgba(255,179,71,.12);  color: var(--warn);   border: 1px solid rgba(255,179,71,.2); }
+.score-badge.low  { background: rgba(255,107,107,.12); color: var(--danger); border: 1px solid rgba(255,107,107,.2); }
+.score-badge small { font-size: 9px; font-family: var(--font-mono); color: var(--muted); font-weight: 400; }
+.job-skills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+.micro-pill { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+.micro-pill.have { background: rgba(127,255,178,.1); color: var(--accent); }
+.micro-pill.miss { background: rgba(255,107,107,.08); color: var(--danger); }
+
+/* ── detail panel ── */
+.detail-panel {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 420px;
+  background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 10;
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+}
+.detail-panel.open { transform: translateX(0); }
+.detail-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.close-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; flex-shrink: 0; transition: color .15s; }
+.close-btn:hover { color: var(--text); }
+.detail-body { flex: 1; overflow-y: auto; padding: 18px; }
+.detail-section { margin-bottom: 20px; }
+.detail-section-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+.desc-text { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.apply-btn {
+  width: 100%; padding: 12px; border-radius: 8px; cursor: pointer;
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  background: var(--accent); color: #0a0a0f; border: none;
+  transition: opacity .15s; margin-bottom: 10px;
+}
+.apply-btn:hover { opacity: .85; }
+.apply-btn:disabled { opacity: .4; cursor: not-allowed; }
+.secondary-btn {
+  width: 100%; padding: 10px; border-radius: 8px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px;
+  background: none; color: var(--muted); border: 1px solid var(--border);
+  transition: all .15s;
+}
+.secondary-btn:hover { border-color: var(--border2); color: var(--text); }
+
+/* cover letter output */
+.cover-output {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.75;
+  color: var(--text); white-space: pre-wrap; font-family: var(--font-mono);
+  margin-top: 10px; max-height: 280px; overflow-y: auto;
+}
+.qs-list { list-style: none; }
+.qs-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); display: flex; gap: 8px; }
+.qs-list li::before { content: "?"; color: var(--accent2); flex-shrink: 0; }
+.selling-list { list-style: none; }
+.selling-list li { padding: 6px 0; font-size: 12px; color: var(--muted); display: flex; gap: 8px; }
+.selling-list li::before { content: "✦"; color: var(--accent); font-size: 10px; flex-shrink: 0; margin-top: 2px; }
+
+/* loading shimmer */
+.shimmer {
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--surface) 50%, var(--surface2) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+  border-radius: 4px; height: 12px; margin-bottom: 8px;
+}
+@keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+.no-results { padding: 48px 20px; text-align: center; color: var(--muted); }
+.no-results .big { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--border2); margin-bottom: 8px; }
+
+/* copy btn */
+.copy-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  padding: 4px 10px; font-size: 11px; font-family: var(--font-mono);
+  color: var(--muted); cursor: pointer; transition: all .15s; margin-top: 6px;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.spinner-inline { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+
+/* relative position on main so panel can absolute-position */
+.main { position: relative; }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 10px 18px; font-size: 12px; color: var(--text);
+  transition: transform .3s; z-index: 999; pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const API = "http://localhost:5000/api";
+
+// ── mock jobs for demo when backend is offline ─────────────────────────────
+const DEMO_JOBS = [
+  { id:"d1", title:"Junior Data Engineer", company:"Revolut", location:"London, UK", salary_min:38000, salary_max:50000, description:"Build and maintain scalable data pipelines using Python, Spark, and Airflow. Work with SQL, dbt, and cloud infrastructure on AWS. Strong Python and SQL required. Docker experience a plus.", url:"#", posted: new Date().toISOString(), match_score:82, matched_skills:["python","sql","docker","machine learning"], missing_skills:["spark","airflow","dbt"] },
+  { id:"d2", title:"Data Analyst", company:"HSBC Technology", location:"London, UK", salary_min:32000, salary_max:45000, description:"Analyse large datasets using Python and SQL. Build dashboards in PowerBI. Present findings to stakeholders. Knowledge of ML models a plus. Strong communication skills required.", url:"#", posted: new Date().toISOString(), match_score:75, matched_skills:["python","sql","powerbi"], missing_skills:["tableau","dbt"] },
+  { id:"d3", title:"ML Engineer (Graduate)", company:"Palantir", location:"London, UK", salary_min:55000, salary_max:70000, description:"Deploy machine learning models to production. Python, TensorFlow/PyTorch, Docker required. Data pipeline and REST API knowledge essential. Security clearance may be required.", url:"#", posted: new Date().toISOString(), match_score:68, matched_skills:["python","tensorflow","docker","flask"], missing_skills:["pytorch","kubernetes"] },
+  { id:"d4", title:"Backend Python Developer", company:"Monzo", location:"London, UK", salary_min:42000, salary_max:58000, description:"Build microservices with Python/Flask. Strong SQL and Docker skills needed. REST API design experience. GCP or AWS cloud experience preferred. Testing and CI/CD familiarity essential.", url:"#", posted: new Date().toISOString(), match_score:90, matched_skills:["python","flask","sql","docker","rest api"], missing_skills:["kubernetes"] },
+  { id:"d5", title:"Cybersecurity Analyst", company:"BAE Systems", location:"London, UK", salary_min:35000, salary_max:48000, description:"Perform vulnerability assessments and penetration testing. Python scripting for automation. SIEM tool familiarity. Threat modelling experience helpful. Degree in CS or related field.", url:"#", posted: new Date().toISOString(), match_score:72, matched_skills:["python","cybersecurity","linux"], missing_skills:["siem","pentesting"] },
+];
+
+function scoreColor(s) {
+  if (s >= 75) return "high";
+  if (s >= 50) return "mid";
+  return "low";
+}
+
+function fmtSalary(min, max) {
+  if (!min && !max) return null;
+  const fmt = n => n >= 1000 ? `£${Math.round(n/1000)}k` : `£${n}`;
+  if (min && max) return `${fmt(min)}–${fmt(max)}`;
+  return fmt(min || max);
+}
+
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diff = (Date.now() - new Date(iso)) / 60000;
+  if (diff < 60) return `${Math.round(diff)}m ago`;
+  if (diff < 1440) return `${Math.round(diff/60)}h ago`;
+  return `${Math.round(diff/1440)}d ago`;
+}
+
+// ── Fit Ring SVG ─────────────────────────────────────────────────────────────
+function FitRing({ pct }) {
+  const r = 42, circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct / 100);
+  const color = pct >= 75 ? "#7fffb2" : pct >= 50 ? "#ffb347" : "#ff6b6b";
+  return (
+    <div className="fit-ring-wrap">
+      <div style={{ position:"relative", width:100, height:100 }}>
+        <svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="8"/>
+          <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
+            strokeDasharray={circ} strokeDashoffset={offset}
+            strokeLinecap="round" transform="rotate(-90 50 50)"
+            style={{ transition:"stroke-dashoffset .6s ease" }}/>
+        </svg>
+        <div className="ring-label">
+          <div className="ring-pct" style={{ color }}>{pct}%</div>
+          <div className="ring-sub">fit</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function Toast({ msg, show }) {
+  return <div className={`toast ${show ? "show" : ""}`}>{msg}</div>;
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [jobs, setJobs] = useState(DEMO_JOBS);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("data engineer");
+  const [location, setLocation] = useState("London");
+  const [selected, setSelected] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [coverLetter, setCoverLetter] = useState(null);
+  const [clLoading, setClLoading] = useState(false);
+  const [countdown, setCountdown] = useState(300);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+  const [toastShow, setToastShow] = useState(false);
+  const fileRef = useRef();
+  const intervalRef = useRef();
+
+  const toast = (msg) => {
+    setToastMsg(msg); setToastShow(true);
+    setTimeout(() => setToastShow(false), 2500);
+  };
+
+  // ── fetch jobs ─────────────────────────────────────────────────────────────
+  const fetchJobs = useCallback(async (q=query, loc=location) => {
+    setRefreshing(true);
+    try {
+      const r = await fetch(`${API}/jobs?q=${encodeURIComponent(q)}&location=${encodeURIComponent(loc)}`);
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      // if profile exists, score them
+      if (profile) {
+        const scored = await scoreJobs(profile, data.jobs);
+        setJobs(scored);
+      } else {
+        setJobs(data.jobs);
+      }
+      setCountdown(data.next_refresh || 300);
+      toast(`Fetched ${data.jobs.length} live jobs`);
+    } catch {
+      // backend offline — keep demo data, simulate refresh
+      setJobs(j => [...j]);
+      setCountdown(300);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [query, location, profile]);
+
+  // countdown timer + auto-refresh
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { fetchJobs(); return 300; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [fetchJobs]);
+
+  // ── score jobs against profile ─────────────────────────────────────────────
+  const scoreJobs = async (prof, jobList) => {
+    try {
+      const r = await fetch(`${API}/match`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ profile: prof, jobs: jobList }),
+      });
+      return r.ok ? await r.json() : jobList;
+    } catch { return jobList; }
+  };
+
+  // ── CV upload ──────────────────────────────────────────────────────────────
+  const handleFile = async (file) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/parse-cv`, { method:"POST", body: formData });
+      if (!r.ok) throw new Error();
+      const prof = await r.json();
+      setProfile(prof);
+      // re-score all current jobs
+      const scored = await scoreJobs(prof, jobs);
+      setJobs(scored);
+      toast(`CV parsed — ${prof.skill_count} skills detected`);
+    } catch {
+      // offline demo: simulate parsing
+      const fakeProfile = {
+        name: "Saanvi Sethi",
+        email: "saanvi.sethi19@gmail.com",
+        skill_count: 18,
+        experience_years: 3,
+        all_skills: ["python","sql","flask","docker","machine learning","tensorflow","linux","cybersecurity","powerbi","javascript","html","css","mqtt","git","figma"],
+        skills: { languages:["python","sql","javascript","html","css"], ml_ai:["machine learning","tensorflow"], web_frameworks:["flask"], cloud_devops:["docker","linux"], tools:["powerbi","git","figma","mqtt"] },
+        education: [{ line:"BSc Computer Science (First Class Honours), Coventry University" }],
+      };
+      setProfile(fakeProfile);
+      setJobs(j => j.map(job => ({
+        ...job,
+        match_score: Math.min(100, (job.match_score || 60) + Math.floor(Math.random()*10)),
+      })));
+      toast("CV parsed (demo mode)");
+    } finally { setLoading(false); }
+  };
+
+  // drag-and-drop
+  const onDrop = (e) => {
+    e.preventDefault();
+    handleFile(e.dataTransfer.files[0]);
+  };
+
+  // ── generate cover letter ──────────────────────────────────────────────────
+  const generateCL = async (job) => {
+    if (!profile) { toast("Upload your CV first"); return; }
+    setClLoading(true); setCoverLetter(null);
+    try {
+      const r = await fetch(`${API}/cover-letter`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ profile, job }),
+      });
+      if (!r.ok) throw new Error();
+      setCoverLetter(await r.json());
+    } catch {
+      // demo fallback
+      setCoverLetter({
+        cover_letter: `Dear Hiring Team at ${job.company},\n\nI am writing to express my strong interest in the ${job.title} position. As a Computer Science graduate with hands-on experience in Python, Flask, and data pipelines, I am confident I can contribute meaningfully from day one.\n\nDuring my internship at Civica Ltd. and my work with CyberWomen Coventry, I built full-stack applications and led technical workshops for over 120 students. My dissertation project — a CTEM vs traditional threat management platform — demonstrates my ability to design, build, and evaluate end-to-end data systems under academic rigour.\n\nI would love the opportunity to bring this energy and technical depth to ${job.company}. I am available for an interview at your convenience and can provide a live demo of my projects.\n\nBest regards,\nSaanvi Sethi`,
+        subject_line: `Application for ${job.title} — Saanvi Sethi`,
+        key_selling_points: ["End-to-end Python/Flask full-stack development", "Real-world data pipeline + ETL experience", "Strong communicator — 120+ students taught"],
+        questions_to_prep: ["Walk me through a data pipeline you built.", "How do you handle data quality issues in production?", "Describe your experience with cybersecurity and secure coding.", "Where do you see yourself in 3 years in this field?"],
+      });
+    } finally { setClLoading(false); }
+  };
+
+  const copyText = (t) => { navigator.clipboard.writeText(t); toast("Copied to clipboard"); };
+
+  // ── overall fit score ──────────────────────────────────────────────────────
+  const avgFit = jobs.length
+    ? Math.round(jobs.reduce((s,j) => s + (j.match_score||0), 0) / jobs.length)
+    : 0;
+
+  const allMissing = [...new Set(jobs.flatMap(j => j.missing_skills||[]))].slice(0,8);
+  const allHave    = [...new Set(jobs.flatMap(j => j.matched_skills||[]))].slice(0,8);
+
+  return (
+    <div className="shell">
+      <div className="topbar">
+        <div className="logo">Talent<span>Lens</span></div>
+        <div className="topbar-right">
+          <div className="live-dot"><div className="dot"></div>live feed</div>
+          <div className="countdown">refresh in <span>{Math.floor(countdown/60)}:{String(countdown%60).padStart(2,"0")}</span></div>
+        </div>
+      </div>
+
+      <div className="body">
+        {/* ── sidebar ── */}
+        <div className="sidebar">
+          <div className="sidebar-section">
+            <div className="sidebar-label">Your CV</div>
+            <div
+              className={`upload-zone ${profile?"done":""}`}
+              onClick={() => fileRef.current.click()}
+              onDragOver={e=>e.preventDefault()}
+              onDrop={onDrop}
+            >
+              {loading
+                ? <><span style={{fontSize:22,display:"block",marginBottom:6}}>⟳</span>Parsing CV…</>
+                : profile
+                  ? <><span style={{fontSize:22,display:"block",marginBottom:6}}>✓</span>{profile.name || "CV loaded"}<br/><span style={{fontSize:10,color:"var(--muted)"}}>{profile.skill_count} skills · {profile.experience_years}y exp</span></>
+                  : <><span style={{fontSize:22,display:"block",marginBottom:6}}>↑</span>Drop CV here<br/><span style={{fontSize:10}}>PDF or .txt</span></>
+              }
+              <input ref={fileRef} type="file" accept=".pdf,.txt" style={{display:"none"}} onChange={e=>handleFile(e.target.files[0])}/>
+            </div>
+          </div>
+
+          {profile && (
+            <div className="sidebar-section">
+              <div className="sidebar-label">Market fit</div>
+              <FitRing pct={avgFit}/>
+              <div style={{marginTop:10}}>
+                <div style={{fontSize:10,color:"var(--muted)",marginBottom:6}}>You have</div>
+                <div className="pills">{allHave.map(s=><span key={s} className="pill have">{s}</span>)}</div>
+                <div style={{fontSize:10,color:"var(--muted)",margin:"8px 0 6px"}}>Gap skills</div>
+                <div className="pills">{allMissing.map(s=><span key={s} className="pill miss">{s}</span>)}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Stats</div>
+            <div className="stat-row"><span className="stat-lbl">Open roles</span><span className="stat-val">{jobs.length}</span></div>
+            <div className="stat-row"><span className="stat-lbl">High match</span><span className="stat-val">{jobs.filter(j=>(j.match_score||0)>=75).length}</span></div>
+            <div className="stat-row"><span className="stat-lbl">Avg salary</span>
+              <span className="stat-val" style={{fontSize:15}}>
+                {jobs.filter(j=>j.salary_min).length
+                  ? `£${Math.round(jobs.filter(j=>j.salary_min).reduce((s,j)=>s+(j.salary_min+j.salary_max)/2,0)/jobs.filter(j=>j.salary_min).length/1000)}k`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── main ── */}
+        <div className="main">
+          <div className="main-toolbar">
+            <div className="search-wrap">
+              <span className="s-icon">⌕</span>
+              <input value={query} onChange={e=>setQuery(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&fetchJobs(query,location)}
+                placeholder="role or keywords"/>
+            </div>
+            <input className="loc-input" value={location} onChange={e=>setLocation(e.target.value)}
+              placeholder="location" onKeyDown={e=>e.key==="Enter"&&fetchJobs(query,location)}/>
+            <button className={`refresh-btn ${refreshing?"spinning":""}`} onClick={()=>fetchJobs(query,location)}>
+              <span style={{display:"inline-block",transition:"transform .3s",transform:refreshing?"rotate(180deg)":"none"}}>↺</span>
+              {refreshing ? "Fetching…" : "Refresh"}
+            </button>
+          </div>
+
+          <div className="jobs-wrap">
+            {jobs.length === 0
+              ? <div className="no-results"><div className="big">∅</div>No jobs found. Try a different search.</div>
+              : <div className="jobs-grid">
+                  {jobs.map(job => {
+                    const sc = job.match_score ?? null;
+                    return (
+                      <div key={job.id} className={`job-card ${selected?.id===job.id?"selected":""}`}
+                        onClick={()=>{ setSelected(job); setCoverLetter(null); }}>
+                        <div>
+                          <div className="job-title">{job.title}</div>
+                          <div className="job-meta">
+                            <span>🏢 {job.company}</span>
+                            <span>📍 {job.location}</span>
+                            {fmtSalary(job.salary_min,job.salary_max) && <span>💷 {fmtSalary(job.salary_min,job.salary_max)}</span>}
+                            <span>{timeAgo(job.posted)}</span>
+                          </div>
+                          <div className="job-desc">{job.description}</div>
+                          {(job.matched_skills?.length > 0 || job.missing_skills?.length > 0) && (
+                            <div className="job-skills">
+                              {job.matched_skills?.slice(0,4).map(s=><span key={s} className="micro-pill have">{s}</span>)}
+                              {job.missing_skills?.slice(0,3).map(s=><span key={s} className="micro-pill miss">{s}</span>)}
+                            </div>
+                          )}
+                        </div>
+                        {sc !== null && (
+                          <div className={`score-badge ${scoreColor(sc)}`}>
+                            {sc}<small>%</small>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+            }
+          </div>
+
+          {/* ── detail panel ── */}
+          <div className={`detail-panel ${selected?"open":""}`}>
+            {selected && <>
+              <div className="detail-header">
+                <div>
+                  <div style={{fontFamily:"var(--font-display)",fontSize:15,fontWeight:600,marginBottom:4}}>{selected.title}</div>
+                  <div style={{fontSize:12,color:"var(--muted)"}}>{selected.company} · {selected.location}</div>
+                </div>
+                <button className="close-btn" onClick={()=>{setSelected(null);setCoverLetter(null);}}>✕</button>
+              </div>
+
+              <div className="detail-body">
+                {selected.match_score != null && (
+                  <div className="detail-section">
+                    <div className="detail-section-title">Match score</div>
+                    <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                      <div className={`score-badge ${scoreColor(selected.match_score)}`} style={{width:64,height:64,fontSize:20}}>
+                        {selected.match_score}<small>%</small>
+                      </div>
+                      <div>
+                        {selected.matched_skills?.length > 0 && <div style={{marginBottom:6}}><div className="pills">{selected.matched_skills.map(s=><span key={s} className="pill have">{s}</span>)}</div></div>}
+                        {selected.missing_skills?.length > 0 && <div className="pills">{selected.missing_skills.map(s=><span key={s} className="pill miss">{s}</span>)}</div>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="detail-section">
+                  <div className="detail-section-title">Description</div>
+                  <div className="desc-text">{selected.description}</div>
+                </div>
+
+                {fmtSalary(selected.salary_min,selected.salary_max) && (
+                  <div className="detail-section">
+                    <div className="detail-section-title">Salary</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:18,fontWeight:700,color:"var(--accent)"}}>{fmtSalary(selected.salary_min,selected.salary_max)}</div>
+                  </div>
+                )}
+
+                <div className="detail-section">
+                  <button className="apply-btn" onClick={()=>generateCL(selected)} disabled={clLoading}>
+                    {clLoading ? <><span className="spinner-inline"></span> Generating…</> : "✦ Generate cover letter + prep guide"}
+                  </button>
+                  {selected.url && selected.url !== "#" && (
+                    <a href={selected.url} target="_blank" rel="noopener" style={{display:"block",textDecoration:"none"}}>
+                      <button className="secondary-btn">View original listing ↗</button>
+                    </a>
+                  )}
+                </div>
+
+                {coverLetter && <>
+                  <div className="detail-section">
+                    <div className="detail-section-title">Key selling points</div>
+                    <ul className="selling-list">
+                      {coverLetter.key_selling_points?.map((p,i)=><li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+
+                  <div className="detail-section">
+                    <div className="detail-section-title">Cover letter — {coverLetter.subject_line}</div>
+                    <div className="cover-output">{coverLetter.cover_letter}</div>
+                    <button className="copy-btn" onClick={()=>copyText(coverLetter.cover_letter)}>Copy letter</button>
+                  </div>
+
+                  <div className="detail-section">
+                    <div className="detail-section-title">Interview questions to prep</div>
+                    <ul className="qs-list">
+                      {coverLetter.questions_to_prep?.map((q,i)=><li key={i}>{q}</li>)}
+                    </ul>
+                  </div>
+                </>}
+              </div>
+            </>}
+          </div>
+        </div>
+      </div>
+
+      <Toast msg={toastMsg} show={toastShow}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
