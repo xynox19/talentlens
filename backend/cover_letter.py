@@ -3,10 +3,15 @@ cover_letter.py — generate tailored cover letters using the Anthropic API.
 
 Set ANTHROPIC_API_KEY as an environment variable.
 """
+import json
 import os
+import re
+
 import anthropic
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5")
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 def generate_cover_letter(profile: dict, job: dict) -> dict:
@@ -21,16 +26,16 @@ def generate_cover_letter(profile: dict, job: dict) -> dict:
             "questions_to_prep": list,  # likely interview questions
         }
     """
-    candidate_name    = profile.get("name", "the candidate")
-    candidate_skills  = ", ".join(profile.get("all_skills", [])[:20])
-    candidate_exp     = profile.get("experience_years", 0)
-    education         = "; ".join(e["line"] for e in profile.get("education", []))
-    matched_skills    = ", ".join(job.get("matched_skills", []))
-    missing_skills    = ", ".join(job.get("missing_skills", []))
+    candidate_name = profile.get("name", "the candidate")
+    candidate_skills = ", ".join(profile.get("all_skills", [])[:20]) or "Not provided"
+    candidate_exp = profile.get("experience_years", 0)
+    education = "; ".join(e["line"] for e in profile.get("education", [])) or "Not provided"
+    matched_skills = ", ".join(job.get("matched_skills", [])) or "None"
+    missing_skills = ", ".join(job.get("missing_skills", [])) or "None"
 
-    job_title   = job.get("title", "this role")
-    company     = job.get("company", "the company")
-    description = job.get("description", "")[:800]  # keep prompt lean
+    job_title = job.get("title", "this role")
+    company = job.get("company", "the company")
+    description = job.get("description", "")[:800]
 
     prompt = f"""You are an expert careers advisor and professional writer.
 
@@ -56,21 +61,14 @@ Produce a JSON response (no markdown fences) with exactly these keys:
 
     try:
         message = client.messages.create(
-            model="claude-opus-4-5",
+            model=ANTHROPIC_MODEL,
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
         raw = message.content[0].text.strip()
-
-        import json
-        # strip stray markdown fences if model adds them
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
+        raw = re.sub(r"^```(?:json)?\s*|```$", "", raw, flags=re.I | re.M).strip()
         result = json.loads(raw)
     except Exception as e:
-        # Fallback: return a structured placeholder
         result = {
             "cover_letter": (
                 f"Dear Hiring Team at {company},\n\n"
@@ -83,8 +81,8 @@ Produce a JSON response (no markdown fences) with exactly these keys:
             ),
             "subject_line": f"Application for {job_title} — {candidate_name}",
             "key_selling_points": [
-                f"Strong match on: {matched_skills or 'core skills'}",
-                f"Relevant background in data engineering and Python",
+                f"Strong match on: {matched_skills}",
+                "Relevant background in data engineering and Python",
                 "Proactive learner actively developing missing skills",
             ],
             "questions_to_prep": [

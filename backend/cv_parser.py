@@ -67,7 +67,7 @@ def parse_cv(text: str) -> dict:
             if re.search(pattern, text_lower):
                 found[group].append(skill)
 
-    all_found = [s for group_skills in found.values() for s in group_skills]
+    all_found = sorted({s for group_skills in found.values() for s in group_skills})
 
     # ── extract email ────────────────────────────────────────────────────────
     email_match = re.search(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", text)
@@ -128,13 +128,24 @@ def score_job_match(profile: dict, job: dict) -> dict:
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _estimate_experience_years(text: str) -> float:
-    """Rough heuristic: count distinct year mentions in date ranges."""
+    """Rough heuristic: infer experience from year ranges and common phrases."""
+    text_lower = text.lower()
     years = re.findall(r'\b(20\d{2}|19\d{2})\b', text)
-    if len(years) < 2:
-        return 0
-    years_int = sorted(set(int(y) for y in years))
-    span = years_int[-1] - years_int[0]
-    return round(min(span, 15), 1)
+    if len(years) >= 2:
+        years_int = sorted(set(int(y) for y in years))
+        span = years_int[-1] - years_int[0]
+        return round(min(span, 15), 1)
+
+    match = re.search(r'(\d+)\+?\s+years? of experience', text_lower)
+    if match:
+        return float(match.group(1))
+
+    if "senior" in text_lower:
+        return 5.0
+    if "junior" in text_lower or "graduate" in text_lower:
+        return 1.0
+
+    return 0.0
 
 
 def _extract_education(text: str) -> list[dict]:

@@ -6,12 +6,15 @@ Set them as environment variables:
     ADZUNA_APP_ID=your_id
     ADZUNA_APP_KEY=your_key
 """
-import os, requests, time
+import json
+import os
+import requests
+import time
 from datetime import datetime
 
-ADZUNA_APP_ID  = os.getenv("ADZUNA_APP_ID", "")
-ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
-BASE_URL       = "https://api.adzuna.com/v1/api/jobs/gb/search/1"
+from backend.db import load_jobs, save_jobs
+
+BASE_URL = "https://api.adzuna.com/v1/api/jobs/gb/search/1"
 
 # In-memory cache: { "query|location": { jobs: [...], fetched_at: ts } }
 _cache: dict = {}
@@ -20,15 +23,19 @@ _cache: dict = {}
 def fetch_jobs(query="data engineer", location="London", results_per_page=20) -> list:
     """Fetch jobs from Adzuna and store in cache. Returns list of job dicts."""
     cache_key = f"{query}|{location}"
+    adzuna_app_id = os.getenv("ADZUNA_APP_ID", "")
+    adzuna_app_key = os.getenv("ADZUNA_APP_KEY", "")
 
-    if not ADZUNA_APP_ID or not ADZUNA_APP_KEY:
+    if not adzuna_app_id or not adzuna_app_key:
         # Return realistic mock data when no API key is set
-        _cache[cache_key] = {"jobs": _mock_jobs(query, location), "fetched_at": time.time()}
-        return _cache[cache_key]["jobs"]
+        jobs = _mock_jobs(query, location)
+        _cache[cache_key] = {"jobs": jobs, "fetched_at": time.time()}
+        save_jobs(query, location, jobs)
+        return jobs
 
     params = {
-        "app_id":          ADZUNA_APP_ID,
-        "app_key":         ADZUNA_APP_KEY,
+        "app_id":          adzuna_app_id,
+        "app_key":         adzuna_app_key,
         "results_per_page": results_per_page,
         "what":            query,
         "where":           location,
@@ -41,9 +48,19 @@ def fetch_jobs(query="data engineer", location="London", results_per_page=20) ->
         resp.raise_for_status()
         raw_jobs = resp.json().get("results", [])
     except Exception as e:
-        print(f"[jobs] Adzuna fetch failed: {e} — falling back to mock data")
-        _cache[cache_key] = {"jobs": _mock_jobs(query, location), "fetched_at": time.time()}
-        return _cache[cache_key]["jobs"]
+        print(f"[jobs] Adzuna fetch failed: {e} — falling back to cache or mock data")
+        if cache_key in _cache and _cache[cache_key].get("jobs"):
+            return _cache[cache_key]["jobs"]
+
+        cached = load_jobs(query, location)
+        if cached and cached.get("jobs"):
+            _cache[cache_key] = {"jobs": cached["jobs"], "fetched_at": cached["fetched_at"]}
+            return cached["jobs"]
+
+        jobs = _mock_jobs(query, location)
+        _cache[cache_key] = {"jobs": jobs, "fetched_at": time.time()}
+        save_jobs(query, location, jobs)
+        return jobs
 
     jobs = []
     for r in raw_jobs:
@@ -61,6 +78,7 @@ def fetch_jobs(query="data engineer", location="London", results_per_page=20) ->
         })
 
     _cache[cache_key] = {"jobs": jobs, "fetched_at": time.time()}
+    save_jobs(query, location, jobs)
     return jobs
 
 
@@ -68,17 +86,21 @@ def get_cached_jobs(query="data engineer", location="London") -> dict:
     """Return cached jobs with metadata, fetching fresh if cache is empty."""
     cache_key = f"{query}|{location}"
     if cache_key not in _cache:
-        fetch_jobs(query, location)
+        cached = load_jobs(query, location)
+        if cached and cached.get("jobs"):
+            _cache[cache_key] = {"jobs": cached["jobs"], "fetched_at": cached["fetched_at"]}
+        else:
+            fetch_jobs(query, location)
 
     entry = _cache.get(cache_key, {})
     fetched_at = entry.get("fetched_at", 0)
     return {
-        "jobs":        entry.get("jobs", []),
-        "count":       len(entry.get("jobs", [])),
-        "fetched_at":  datetime.fromtimestamp(fetched_at).isoformat() if fetched_at else None,
+        "jobs":         entry.get("jobs", []),
+        "count":        len(entry.get("jobs", [])),
+        "fetched_at":   datetime.fromtimestamp(fetched_at).isoformat() if fetched_at else None,
         "next_refresh": int(300 - (time.time() - fetched_at)) if fetched_at else 0,
-        "query":       query,
-        "location":    location,
+        "query":        query,
+        "location":     location,
     }
 
 
