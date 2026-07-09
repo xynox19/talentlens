@@ -6,7 +6,10 @@ def test_cover_letter_fallback_is_structured(monkeypatch):
         def create(self, *args, **kwargs):
             raise RuntimeError("API unavailable")
 
-    monkeypatch.setattr(cover_letter, "client", type("C", (), {"messages": DummyMessages()})())
+    def dummy_client():
+        return type("C", (), {"messages": DummyMessages()})()
+
+    monkeypatch.setattr(cover_letter, "_get_anthropic_client", lambda: dummy_client())
 
     profile = {
         "name": "Test User",

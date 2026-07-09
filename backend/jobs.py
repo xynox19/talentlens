@@ -12,7 +12,10 @@ import requests
 import time
 from datetime import datetime, timezone
 
-from backend.db import load_jobs, save_jobs
+try:
+    from .db import load_jobs, save_jobs
+except ImportError:  # pragma: no cover - supports direct script execution
+    from db import load_jobs, save_jobs
 
 BASE_URL = "https://api.adzuna.com/v1/api/jobs/gb/search/1"
 

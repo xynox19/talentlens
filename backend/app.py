@@ -7,9 +7,14 @@ import os
 import threading
 import time
 
-from jobs import fetch_jobs, get_cached_jobs
-from cv_parser import parse_cv, score_job_match
-from cover_letter import generate_cover_letter
+try:
+    from .jobs import fetch_jobs, get_cached_jobs
+    from .cv_parser import parse_cv, score_job_match
+    from .cover_letter import generate_cover_letter
+except ImportError:  # pragma: no cover - supports direct script execution
+    from jobs import fetch_jobs, get_cached_jobs
+    from cv_parser import parse_cv, score_job_match
+    from cover_letter import generate_cover_letter
 
 load_dotenv()
 
