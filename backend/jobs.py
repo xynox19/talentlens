@@ -10,7 +10,7 @@ import json
 import os
 import requests
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.db import load_jobs, save_jobs
 
@@ -116,7 +116,7 @@ def _mock_jobs(query: str, location: str) -> list:
             "salary_max": 50000,
             "description": "Build and maintain scalable data pipelines using Python, Spark, and Airflow. Work with SQL, dbt, and cloud infrastructure (AWS). Strong Python and SQL required.",
             "url": "https://www.adzuna.co.uk",
-            "posted": datetime.utcnow().isoformat(),
+            "posted": datetime.now(timezone.utc).isoformat(),
             "category": "IT Jobs",
         },
         {
@@ -128,7 +128,7 @@ def _mock_jobs(query: str, location: str) -> list:
             "salary_max": 45000,
             "description": "Analyse large datasets using Python and SQL. Build dashboards in PowerBI and Tableau. Experience with machine learning models is a plus.",
             "url": "https://www.adzuna.co.uk",
-            "posted": datetime.utcnow().isoformat(),
+            "posted": datetime.now(timezone.utc).isoformat(),
             "category": "IT Jobs",
         },
         {
@@ -140,7 +140,7 @@ def _mock_jobs(query: str, location: str) -> list:
             "salary_max": 70000,
             "description": "Deploy machine learning models into production. Python, TensorFlow/PyTorch, Docker required. Knowledge of data pipelines and REST APIs essential.",
             "url": "https://www.adzuna.co.uk",
-            "posted": datetime.utcnow().isoformat(),
+            "posted": datetime.now(timezone.utc).isoformat(),
             "category": "IT Jobs",
         },
         {
@@ -152,7 +152,7 @@ def _mock_jobs(query: str, location: str) -> list:
             "salary_max": 58000,
             "description": "Build microservices in Python/Flask. Strong SQL, Docker, and REST API design skills needed. Experience with cloud (AWS/GCP) preferred.",
             "url": "https://www.adzuna.co.uk",
-            "posted": datetime.utcnow().isoformat(),
+            "posted": datetime.now(timezone.utc).isoformat(),
             "category": "IT Jobs",
         },
         {
@@ -164,8 +164,10 @@ def _mock_jobs(query: str, location: str) -> list:
             "salary_max": 48000,
             "description": "Perform vulnerability assessments and penetration testing. Python scripting for automation. Familiarity with SIEM tools and threat modelling.",
             "url": "https://www.adzuna.co.uk",
-            "posted": datetime.utcnow().isoformat(),
+            "posted": datetime.now(timezone.utc).isoformat(),
             "category": "IT Jobs",
         },
+
+
     ]
     return templates
