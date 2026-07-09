@@ -7,11 +7,20 @@ import json
 import os
 import re
 
-import anthropic
-
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5")
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+
+def _get_anthropic_client():
+    try:
+        import anthropic
+    except ImportError:
+        return None
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return None
+
+    return anthropic.Anthropic(api_key=api_key)
 
 
 def generate_cover_letter(profile: dict, job: dict) -> dict:
@@ -59,7 +68,11 @@ Produce a JSON response (no markdown fences) with exactly these keys:
   "questions_to_prep": ["likely interview question 1", "likely interview question 2", "likely interview question 3", "likely interview question 4"]
 }}"""
 
+    client = _get_anthropic_client()
     try:
+        if client is None:
+            raise RuntimeError("Anthropic API client unavailable")
+
         message = client.messages.create(
             model=ANTHROPIC_MODEL,
             max_tokens=1024,
